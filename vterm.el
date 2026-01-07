@@ -1042,7 +1042,8 @@ will invert `vterm-copy-exclude-prompt' for that call."
   (when vterm--term
     (dolist (key (vterm--translate-event-to-args
                   last-command-event :meta))
-      (apply #'vterm-send-key key))))
+      (apply #'vterm-send-key key))
+    (vterm--reset-point vterm--term)))
 
 (defun vterm--self-insert ()
   "Send invoking key to libvterm."
@@ -1050,7 +1051,11 @@ will invert `vterm-copy-exclude-prompt' for that call."
   (when vterm--term
     (dolist (key (vterm--translate-event-to-args
                   last-command-event))
-      (apply #'vterm-send-key key))))
+      (apply #'vterm-send-key key))
+    ;; Restore cursor position after sending keys.
+    ;; This is essential for macOS system IME (e.g., Korean, Japanese, Chinese)
+    ;; which queries cursor position for preedit overlay placement.
+    (vterm--reset-point vterm--term)))
 
 (defun vterm-send-key (key &optional shift meta ctrl accept-proc-output)
   "Send KEY to libvterm with optional modifiers SHIFT, META and CTRL."
@@ -1387,6 +1392,11 @@ looks like: ((\"m\" :shift ))"
          (ev-keys) keys)
     (if input-method-function
         (let ((inhibit-read-only t))
+          ;; Ensure point is at cursor position before calling input method.
+          ;; This prevents CJK IME preedit overlay from appearing at wrong
+          ;; position when transitioning between composed characters.
+          (when vterm--term
+            (vterm--reset-point vterm--term))
           (setq ev-keys (funcall input-method-function raw-key))
           (when (listp ev-keys)
             (dolist (k ev-keys)
@@ -1611,7 +1621,11 @@ Then triggers a redraw from the module."
             (when (<= ctl-end str-length)
               (ignore-errors (vterm--write-input vterm--term (substring input i ctl-end))))
             (setq i ctl-end)))
-        (vterm--update vterm--term)))))
+        (vterm--update vterm--term)
+        ;; Restore cursor position after processing terminal output.
+        ;; This ensures point is at the correct position for CJK IME
+        ;; preedit overlay, which uses screen cursor coordinates.
+        (vterm--reset-point vterm--term)))))
 
 (defun vterm--sentinel (process event)
   "Sentinel of vterm PROCESS.

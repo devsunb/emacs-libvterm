@@ -620,6 +620,13 @@ static void term_redraw(Term *term, emacs_env *env) {
     term->linenum_added = term->linenum - oldlinenum;
     adjust_topline(term, env);
     term->linenum_added = 0;
+
+    // Restore cursor position immediately after screen refresh.
+    // This fixes CJK IME preedit overlay jumping to wrong position,
+    // as the overlay follows point which gets moved during refresh.
+    int line = row_to_linenr(term, term->cursor.row);
+    goto_line(env, line);
+    goto_col(term, env, term->cursor.row, term->cursor.col);
   }
 
   if (term->title_changed) {
