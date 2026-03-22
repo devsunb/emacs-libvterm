@@ -1432,6 +1432,12 @@ Argument BUFFER the terminal buffer."
         (setq vterm--redraw-timer nil)
         (when vterm--term
           (vterm--redraw vterm--term)
+          (dolist (ov (overlays-in (point-min) (point-max)))
+            (let ((bs (overlay-get ov 'before-string)))
+              (when (and bs
+                         (get-text-property
+                          0 'mac-ts-active-input-string bs))
+                (move-overlay ov (point) (point)))))
           (unless (zerop (window-hscroll))
             (when (cl-member (selected-window) windows :test #'eq)
               (set-window-hscroll (selected-window) 0))))))))
